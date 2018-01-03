@@ -1,10 +1,10 @@
-#openfire服务器地址
+#openfire
 openfire:
   server: 127.0.0.1
 
 spring:
   redis:
-      database: 26 # Redis数据库索引  测试26
-      host: 192.168.0.39 # Redis服务器地址
-      port: 15818  # Redis服务器连接端口
+      database: 26 # Redis
+      host: 192.168.0.39 # Redis
+      port: 15818  # Redis
       password: Redis1231123@#@!!=-23Sdasd1231gjoiuq123#@sda2131-sadas213dsada@#^%&13asdad3412452332
