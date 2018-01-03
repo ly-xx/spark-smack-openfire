@@ -1,29 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-    登录
+    添加好友
 </head>
 <body>
-<form onsubmit="return login()">
+<form onsubmit="return addFriend()">
     <input id="username" type="text" name="username"><br>
-    <input id="psd" type="text" name="psd"><br>
-    <input type="submit" value="登录">
-    <a href="/goRegisterAccount">注册</a>
+    <input id="name" type="text" name="name"><br>
+    <input type="submit" value="添加">
+    <a href="/logout">退出</a>
 </form>
 <script src="http://filealiyun.geeker.com.cn/ued/js/jquery-1.8.3.min.js"></script>
 <script>
-    function login() {
+    function addFriend() {
         var username = $("#username").val();
-        var psd = $("#psd").val();
+        var name = $("#name").val();
         $.ajax({
-            url: "/login",
+            url: "/addFriend",
             type: "post",
-            data: {"username": username, "psd": psd},
+            data: {"username": username, "name": name},
             dataType: "json",
             success: function (result) {
                 if (result.code == 0) {
-                    alert("登录成功！");
-                    window.location.href = "/goIndex";
+                    alert("添加成功！");
                 }
             }
         });

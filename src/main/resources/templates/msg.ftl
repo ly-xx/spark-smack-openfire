@@ -9,6 +9,7 @@
         <input id="username" type="text" name="username" value="${username!}">
         <input id="msg" type="text" name="msg">
         <input type="submit" value="发送">
+        <a href="/logout">退出</a>
     </div>
 </form>
 <div>
