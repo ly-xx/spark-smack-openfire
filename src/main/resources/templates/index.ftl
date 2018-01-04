@@ -12,7 +12,7 @@
                 <a href="/getMsg?username=${friend.user!}">${(friend.name)!}&nbsp;&nbsp;</a><br>
             </#list>
         </#if>
-            <a href="/goAddFriend">添加好友</a>
+            <a href="/goSearch">添加好友</a>
     </div>
     <input type="submit" value="退出">
 </form>

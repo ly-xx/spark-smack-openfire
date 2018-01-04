@@ -12,6 +12,7 @@ import org.jivesoftware.smack.filter.AndFilter;
 import org.jivesoftware.smack.filter.IQTypeFilter;
 import org.jivesoftware.smack.filter.StanzaFilter;
 import org.jivesoftware.smack.filter.StanzaIdFilter;
+import org.jivesoftware.smack.packet.EmptyResultIQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Stanza;
@@ -23,15 +24,15 @@ import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 import org.jivesoftware.smackx.disco.packet.DiscoverInfo;
 import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.offline.OfflineMessageManager;
+import org.jivesoftware.smackx.search.ReportedData;
+import org.jivesoftware.smackx.search.UserSearchManager;
+import org.jivesoftware.smackx.xdata.Form;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author lxx
@@ -71,11 +72,12 @@ public class TestController {
 
     /**
      * 跳转首页
+     *
      * @param paramMap
      * @return
      */
     @RequestMapping(value = "/goIndex")
-    public String goIndex(Map paramMap){
+    public String goIndex(Map paramMap) {
         //登录成功后获取用户好友列表
         Roster roster = getContact();
         //监听消息
@@ -98,12 +100,60 @@ public class TestController {
     }
 
     /**
-     * 跳转添加好友界面
+     * 跳转注册页面
+     *
+     * @return
+     */
+    @RequestMapping(value = "/goSearch")
+    public String goSearch() {
+        return "/search";
+    }
+
+
+    /**
+     * 跳转好友添加页面
+     *
      * @return
      */
     @RequestMapping(value = "/goAddFriend")
-    public String goAddFriend(){
+    public String goAddFriend(String username, String jid, Map paramMap) {
+        paramMap.put("jid", jid);
+        paramMap.put("username", username);
         return "/addFriend";
+    }
+
+    /**
+     * 用户查询
+     *
+     * @return
+     */
+    @RequestMapping(value = "/searchUser")
+    @ResponseBody
+    public BaseResponse searchUser(String userName) {
+        List<Map> mapList = new ArrayList<>();
+        //查询服务器上的用户信息
+        UserSearchManager manager = new UserSearchManager(con);
+        try {
+            //搜索表单
+            Form searchForm = manager.getSearchForm("search." + con.getServiceName());
+            Form answerForm = searchForm.createAnswerForm();
+            answerForm.setAnswer("Username", true);
+            answerForm.setAnswer("search", userName);
+            ReportedData reportedData = manager.getSearchResults(answerForm, "search." + con.getServiceName());
+            List<ReportedData.Row> rowList = reportedData.getRows();
+            for (ReportedData.Row row : rowList) {
+                String jid = row.getValues("jid").get(0);
+                String username = row.getValues("Username").get(0);
+                Map objMap = new HashMap();
+                objMap.put("jid", jid);
+                objMap.put("username", username);
+                mapList.add(objMap);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseBuilder.custom().failed("查询失败").build();
+        }
+        return ResponseBuilder.custom().success().data(mapList).build();
     }
 
     /**
@@ -122,6 +172,7 @@ public class TestController {
             if (con.isConnected()) {
                 //登录
                 con.login(username, psd);
+                // accept_all: 接收所有请求；reject_all: 拒绝所有请求；manual: 手工处理所有请求
                 Roster.getInstanceFor(con).setSubscriptionMode(Roster.SubscriptionMode.manual);
                 Thread.sleep(1000);
             }
@@ -166,7 +217,7 @@ public class TestController {
             public void processMessage(Chat chat, Message message) {
                 //当消息返回为空的时候，表示用户正在聊天窗口编辑信息并未发出消息
                 if (StringUtils.isNotBlank(message.getBody())) {
-                    System.out.println(message.getFrom()+ "：" + message.getBody());
+                    System.out.println(message.getFrom() + "：" + message.getBody());
                 }
             }
         };
@@ -196,9 +247,6 @@ public class TestController {
             con.connect();
             AccountManager manager = AccountManager.getInstance(con);
             manager.createAccount(username, psd);
-            //申请添加好友时如何处理请求
-            // accept_all: 接收所有请求；reject_all: 拒绝所有请求；manual: 手工处理所有请求
-            Roster.getInstanceFor(con).setSubscriptionMode(Roster.SubscriptionMode.manual);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseBuilder.custom().failed("创建失败").build();
@@ -208,16 +256,19 @@ public class TestController {
 
     /**
      * 添加好友
+     *
+     * @param jid      jid
      * @param username 用户名
-     * @param name 昵称
      * @return
      */
     @RequestMapping(value = "/addFriend")
     @ResponseBody
-    public BaseResponse addFriend(String username, String name){
+    public BaseResponse addFriend(String jid, String username) {
         Roster roster = Roster.getInstanceFor(con);
         try {
-            roster.createEntry(username, name, null);
+            //好友验证
+            roster.setSubscriptionMode(Roster.SubscriptionMode.manual);
+            roster.createEntry(jid, username, null);
             addFriendListener();
         } catch (Exception e) {
             e.printStackTrace();
@@ -235,17 +286,15 @@ public class TestController {
         StanzaListener listener = new StanzaListener() {
             @Override
             public void processPacket(Stanza packet) throws SmackException.NotConnectedException {
-                Presence p = (Presence) packet;
-                //p中可以得到对方的信息
-                if (p.getType().toString().equals("subscrib")) {
-                    System.out.println("发送好友请求");
-                    //好友申请
-                } else if (p.getType().toString().equals("subscribed")) {
-                    System.out.println("通过好友请求");
-                    //通过了好友请求
-                } else if (p.getType().toString().equals("unsubscribe")) {
-                    System.out.println("拒绝好友请求");
-                    //拒绝好友请求
+                if (packet instanceof Presence){
+                    Presence p = (Presence)packet;
+                    if (p.getType().toString().equals("subscribe")) {
+                        System.out.println("请求添加好友");
+                    } else if (p.getType().toString().equals("subscribed")) {
+                        System.out.println("通过好友请求");
+                    } else if (p.getType().toString().equals("unsubscribe")) {
+                        System.out.println("拒绝好友请求");
+                    }
                 }
             }
         };

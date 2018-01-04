@@ -52,6 +52,11 @@
 			<version>1.4.3.RELEASE</version>
 		</dependency>
 
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+
 		<!--xmpp  smack-->
 		<dependency>
 			<groupId>org.igniterealtime.smack</groupId>
