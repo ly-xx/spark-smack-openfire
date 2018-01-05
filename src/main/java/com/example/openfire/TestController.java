@@ -28,10 +28,14 @@ import org.jivesoftware.smackx.search.ReportedData;
 import org.jivesoftware.smackx.search.UserSearchManager;
 import org.jivesoftware.smackx.xdata.Form;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import java.security.Principal;
 import java.util.*;
 
 /**
@@ -48,6 +52,8 @@ public class TestController {
     private String openfireServer;
 
     XMPPTCPConnection con;
+
+    HttpSession session;
 
     /**
      * 跳转登录页面
@@ -80,8 +86,7 @@ public class TestController {
     public String goIndex(Map paramMap) {
         //登录成功后获取用户好友列表
         Roster roster = getContact();
-        //监听消息
-        getMsg(paramMap);
+
         //获取离线消息
         getOfflineMsg(paramMap);
         paramMap.put("friends", roster.getEntries());
@@ -137,8 +142,10 @@ public class TestController {
             //搜索表单
             Form searchForm = manager.getSearchForm("search." + con.getServiceName());
             Form answerForm = searchForm.createAnswerForm();
-            answerForm.setAnswer("Username", true);
-            answerForm.setAnswer("search", userName);
+            if (StringUtils.isNotBlank(userName)) {
+                answerForm.setAnswer("Username", true);
+                answerForm.setAnswer("search", userName);
+            }
             ReportedData reportedData = manager.getSearchResults(answerForm, "search." + con.getServiceName());
             List<ReportedData.Row> rowList = reportedData.getRows();
             for (ReportedData.Row row : rowList) {
@@ -165,13 +172,15 @@ public class TestController {
      */
     @RequestMapping(value = "/login")
     @ResponseBody
-    public BaseResponse login(String username, String psd) {
+    public BaseResponse login(String username, String psd, HttpServletRequest request) {
         try {
             con = getConnection();
             con.connect();
             if (con.isConnected()) {
                 //登录
                 con.login(username, psd);
+                //监听消息
+                getMsg(request);
                 // accept_all: 接收所有请求；reject_all: 拒绝所有请求；manual: 手工处理所有请求
                 Roster.getInstanceFor(con).setSubscriptionMode(Roster.SubscriptionMode.manual);
                 Thread.sleep(1000);
@@ -186,6 +195,7 @@ public class TestController {
     /**
      * 消息发送
      *
+     * @param username jid
      * @return
      */
     @RequestMapping(value = "/sendMsg")
@@ -196,8 +206,16 @@ public class TestController {
             ChatManager manager = ChatManager.getInstanceFor(con);
             Chat chat = manager.createChat(username, null);
             chat.sendMessage(msg);
-            paramsMap.put("username", username);
+            paramsMap.put("username", con.getUser());
             paramsMap.put("msg", msg);
+            System.out.println(con.getUser() + "：" + msg);
+            List messageList = (List) session.getAttribute("messageList");
+            if (null == messageList){
+                messageList = new ArrayList<>();
+            }
+            messageList.add(con.getUser() + "：" + msg);
+            session.setAttribute("messageList", messageList);
+
         } catch (Exception e) {
             return ResponseBuilder.custom().failed("发送失败").build();
         }
@@ -207,9 +225,9 @@ public class TestController {
     /**
      * 添加监听
      *
-     * @param paramsMap
      */
-    public void getMsg(Map paramsMap) {
+    public void getMsg(HttpServletRequest request) {
+        session = request.getSession();
         ChatManager manager = ChatManager.getInstanceFor(con);
         //设置信息的监听
         final ChatMessageListener messageListener = new ChatMessageListener() {
@@ -217,7 +235,13 @@ public class TestController {
             public void processMessage(Chat chat, Message message) {
                 //当消息返回为空的时候，表示用户正在聊天窗口编辑信息并未发出消息
                 if (StringUtils.isNotBlank(message.getBody())) {
+                    List messageList = (List) session.getAttribute("messageList");
+                    if (null == messageList){
+                        messageList = new ArrayList<>();
+                    }
                     System.out.println(message.getFrom() + "：" + message.getBody());
+                    messageList.add(message.getFrom() + "：" + message.getBody());
+                    session.setAttribute("messageList", messageList);
                 }
             }
         };
@@ -286,8 +310,8 @@ public class TestController {
         StanzaListener listener = new StanzaListener() {
             @Override
             public void processPacket(Stanza packet) throws SmackException.NotConnectedException {
-                if (packet instanceof Presence){
-                    Presence p = (Presence)packet;
+                if (packet instanceof Presence) {
+                    Presence p = (Presence) packet;
                     if (p.getType().toString().equals("subscribe")) {
                         System.out.println("请求添加好友");
                     } else if (p.getType().toString().equals("subscribed")) {
@@ -352,6 +376,8 @@ public class TestController {
             //将用户状态设为在线
             Presence presence = new Presence(Presence.Type.available);
             con.sendStanza(presence);
+            //删除数据库离线消息
+            messageManager.deleteMessages();
         } catch (Exception e) {
             e.printStackTrace();
         }

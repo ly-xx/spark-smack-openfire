@@ -14,6 +14,11 @@
 </form>
 <div>
     <h3>消息记录</h3>
+<#if messageList??>
+    <#list messageList as msg>
+        <a>${msg!}</a><br>
+    </#list>
+</#if>
     <div id="historyBox"></div>
 </div>
 <script src="http://filealiyun.geeker.com.cn/ued/js/jquery-1.8.3.min.js"></script>
@@ -29,7 +34,7 @@
             success: function (result) {
                 if (result.code == 0) {
                     var data = result.data;
-                    $("#historyBox").append(data.username + "：" + data.msg+"<br>");
+                    $("#historyBox").append(data.username + "：" + data.msg + "<br>");
                 }
             }
         });
