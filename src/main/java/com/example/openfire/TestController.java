@@ -155,16 +155,17 @@ public class TestController {
             //搜索表单
             Form searchForm = manager.getSearchForm("search." + con.getServiceName());
             Form answerForm = searchForm.createAnswerForm();
-            if (StringUtils.isNotBlank(searchName)) {
-                answerForm.setAnswer("userName", true);
+//            if (StringUtils.isNotBlank(searchName)) {
+                answerForm.setAnswer("Username", true);
                 answerForm.setAnswer("search", searchName);
-            }
+//            }
             ReportedData reportedData = manager.getSearchResults(answerForm, "search." + con.getServiceName());
             List<ReportedData.Row> rowList = reportedData.getRows();
             for (ReportedData.Row row : rowList) {
                 Map objMap = new HashMap();
                 objMap.put("jid", row.getValues("jid").get(0));
                 objMap.put("userName", row.getValues("userName").get(0));
+                objMap.put("name", row.getValues("name").get(0));
                 mapList.add(objMap);
             }
         } catch (Exception e) {

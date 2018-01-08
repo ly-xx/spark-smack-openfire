@@ -16,14 +16,14 @@
         $.ajax({
             url: "/searchUser",
             type: "post",
-            data: {"searchName": searchName, "userName":${userName!},
+            data: {"searchName": searchName, "userName":'${userName!}'},
             dataType: "json",
             success: function (result) {
                 if (result.code == 0) {
                     var html = "";
                     for (var i in result.datas) {
-                        html += "<a href='/goAddFriend?username="+result.datas[i].username+"&jid="+result.datas[i].jid+"'>"
-                                + result.datas[i].username + "</a><br>";
+                        html += "<a href='/goAddFriend?userName="+result.datas[i].userName+"&jid="+result.datas[i].jid+"'>"
+                                + result.datas[i].userName + "</a><br>";
                     }
                     $("#userBox").html(html);
                 }
