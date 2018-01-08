@@ -5,18 +5,18 @@
 </head>
 <body>
 <form onsubmit="return searchUser()">
-    <input id="userName" type="text" name="userName"><br>
+    <input id="searchName" type="text" name="searchName"><br>
     <input type="submit" value="搜索">
 </form>
 <div id="userBox"></div>
 <script src="http://filealiyun.geeker.com.cn/ued/js/jquery-1.8.3.min.js"></script>
 <script>
     function searchUser() {
-        var userName = $("#userName").val();
+        var searchName = $("#searchName").val();
         $.ajax({
             url: "/searchUser",
             type: "post",
-            data: {"userName": userName},
+            data: {"searchName": searchName, "userName":${userName!},
             dataType: "json",
             success: function (result) {
                 if (result.code == 0) {

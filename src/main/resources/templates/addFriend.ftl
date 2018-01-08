@@ -6,19 +6,19 @@
 <body>
 <form onsubmit="return addFriend()">
     JID：<input id="jid" type="text" name="jid" value="${jid!}"><br>
-    userName：<input id="username" type="text" name="username" value="${username!}"><br>
+    userName：<input id="userName" type="text" name="userName" value="${userName!}"><br>
     <input type="submit" value="添加">
-    <a href="/logout">退出</a>
+    <a href="/logout?userName=${userName!}">退出</a>
 </form>
 <script src="http://filealiyun.geeker.com.cn/ued/js/jquery-1.8.3.min.js"></script>
 <script>
     function addFriend() {
         var jid = $("#jid").val();
-        var username = $("#username").val();
+        var userName = $("#userName").val();
         $.ajax({
             url: "/addFriend",
             type: "post",
-            data: {"jid": jid, "username": username},
+            data: {"jid": jid, "userName": userName},
             dataType: "json",
             success: function (result) {
                 if (result.code == 0) {

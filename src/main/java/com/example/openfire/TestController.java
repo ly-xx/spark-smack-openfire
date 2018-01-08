@@ -3,16 +3,16 @@ package com.example.openfire;
 import com.daqsoft.commons.responseEntity.BaseResponse;
 import com.daqsoft.commons.responseEntity.ResponseBuilder;
 import org.apache.commons.lang3.StringUtils;
-import org.jivesoftware.smack.*;
+import org.jivesoftware.smack.ConnectionConfiguration;
+import org.jivesoftware.smack.SASLAuthentication;
+import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.StanzaListener;
 import org.jivesoftware.smack.chat.Chat;
 import org.jivesoftware.smack.chat.ChatManager;
 import org.jivesoftware.smack.chat.ChatManagerListener;
 import org.jivesoftware.smack.chat.ChatMessageListener;
 import org.jivesoftware.smack.filter.AndFilter;
-import org.jivesoftware.smack.filter.IQTypeFilter;
 import org.jivesoftware.smack.filter.StanzaFilter;
-import org.jivesoftware.smack.filter.StanzaIdFilter;
-import org.jivesoftware.smack.packet.EmptyResultIQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Stanza;
@@ -21,22 +21,18 @@ import org.jivesoftware.smack.roster.RosterEntry;
 import org.jivesoftware.smack.roster.RosterGroup;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
-import org.jivesoftware.smackx.disco.packet.DiscoverInfo;
 import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.offline.OfflineMessageManager;
 import org.jivesoftware.smackx.search.ReportedData;
 import org.jivesoftware.smackx.search.UserSearchManager;
 import org.jivesoftware.smackx.xdata.Form;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-import java.security.Principal;
 import java.util.*;
 
 /**
@@ -51,8 +47,6 @@ public class TestController {
     //openfire服务器地址
     @Value("${openfire.server}")
     private String openfireServer;
-
-    XMPPTCPConnection con;
 
     HttpSession session;
 
@@ -72,8 +66,10 @@ public class TestController {
      * @return
      */
     @RequestMapping(value = "/getMsg")
-    public String getMsg(String username, Map paramsMap) {
-        paramsMap.put("username", username);
+    public String getMsg(String friendName, Map paramsMap, String jid, String userName) {
+        paramsMap.put("friendName", friendName);
+        paramsMap.put("jid", jid);
+        paramsMap.put("userName", userName);
         return "/msg";
     }
 
@@ -84,12 +80,13 @@ public class TestController {
      * @return
      */
     @RequestMapping(value = "/goIndex")
-    public String goIndex(Map paramMap) {
+    public String goIndex(Map paramMap, String userName) {
+        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
         //登录成功后获取用户好友列表
-        Roster roster = getContact();
-
+        Roster roster = getContact(con);
         //获取离线消息
-        getOfflineMsg(paramMap);
+        getOfflineMsg(paramMap, con);
+        paramMap.put("userName", userName);
         paramMap.put("friends", roster.getEntries());
         paramMap.put("key", "登录成功！");
         return "/index";
@@ -106,12 +103,13 @@ public class TestController {
     }
 
     /**
-     * 跳转注册页面
+     * 跳转查询用户页面
      *
      * @return
      */
     @RequestMapping(value = "/goSearch")
-    public String goSearch() {
+    public String goSearch(String userName, Map paramsMap) {
+        paramsMap.put("userName", userName);
         return "/search";
     }
 
@@ -122,9 +120,9 @@ public class TestController {
      * @return
      */
     @RequestMapping(value = "/goAddFriend")
-    public String goAddFriend(String username, String jid, Map paramMap) {
+    public String goAddFriend(String userName, String jid, Map paramMap) {
         paramMap.put("jid", jid);
-        paramMap.put("username", username);
+        paramMap.put("userName", userName);
         return "/addFriend";
     }
 
@@ -135,26 +133,25 @@ public class TestController {
      */
     @RequestMapping(value = "/searchUser")
     @ResponseBody
-    public BaseResponse searchUser(String userName) {
+    public BaseResponse searchUser(String searchName, String userName) {
         List<Map> mapList = new ArrayList<>();
         //查询服务器上的用户信息
+        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
         UserSearchManager manager = new UserSearchManager(con);
         try {
             //搜索表单
             Form searchForm = manager.getSearchForm("search." + con.getServiceName());
             Form answerForm = searchForm.createAnswerForm();
-            if (StringUtils.isNotBlank(userName)) {
-                answerForm.setAnswer("Username", true);
-                answerForm.setAnswer("search", userName);
+            if (StringUtils.isNotBlank(searchName)) {
+                answerForm.setAnswer("userName", true);
+                answerForm.setAnswer("search", searchName);
             }
             ReportedData reportedData = manager.getSearchResults(answerForm, "search." + con.getServiceName());
             List<ReportedData.Row> rowList = reportedData.getRows();
             for (ReportedData.Row row : rowList) {
-                String jid = row.getValues("jid").get(0);
-                String username = row.getValues("Username").get(0);
                 Map objMap = new HashMap();
-                objMap.put("jid", jid);
-                objMap.put("username", username);
+                objMap.put("jid", row.getValues("jid").get(0));
+                objMap.put("userName", row.getValues("userName").get(0));
                 mapList.add(objMap);
             }
         } catch (Exception e) {
@@ -167,21 +164,23 @@ public class TestController {
     /**
      * 登录
      *
-     * @param username 账号
+     * @param userName 账号
      * @param psd      密码
      * @return
      */
     @RequestMapping(value = "/login")
     @ResponseBody
-    public BaseResponse login(String username, String psd, HttpServletRequest request) {
+    public BaseResponse login(String userName, String psd, HttpServletRequest request) {
         try {
-            con = getConnection();
-            con.connect();
+            XMPPTCPConnection con = getConnection(userName, request);
+            if (!con.isConnected()){
+                con.connect();
+            }
             if (con.isConnected()) {
                 //登录
-                con.login(username, psd);
+                con.login(userName, psd);
                 //监听消息
-                getMsg(request);
+//                getMsg(request, con);
                 // accept_all: 接收所有请求；reject_all: 拒绝所有请求；manual: 手工处理所有请求
                 Roster.getInstanceFor(con).setSubscriptionMode(Roster.SubscriptionMode.manual);
                 Thread.sleep(1000);
@@ -196,18 +195,19 @@ public class TestController {
     /**
      * 消息发送
      *
-     * @param username jid
+     * @param userName jid
      * @return
      */
     @RequestMapping(value = "/sendMsg")
     @ResponseBody
-    public BaseResponse sendMsg(String username, String msg) {
+    public BaseResponse sendMsg(String userName, String msg, String jid) {
         Map paramsMap = new HashMap();
         try {
+            XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
             ChatManager manager = ChatManager.getInstanceFor(con);
-            Chat chat = manager.createChat(username, null);
+            Chat chat = manager.createChat(jid, null);
             chat.sendMessage(msg);
-            paramsMap.put("username", con.getUser());
+            paramsMap.put("userName", con.getUser());
             paramsMap.put("msg", msg);
             System.out.println(con.getUser() + "：" + msg);
             List messageList = (List) session.getAttribute("messageList");
@@ -226,7 +226,7 @@ public class TestController {
     /**
      * 添加监听
      */
-    public void getMsg(HttpServletRequest request) {
+    public void getMsg(HttpServletRequest request, XMPPTCPConnection con) {
         session = request.getSession();
         ChatManager manager = ChatManager.getInstanceFor(con);
         //设置信息的监听
@@ -240,7 +240,7 @@ public class TestController {
                         messageList = new ArrayList<>();
                     }
                     Map objMap = new HashMap();
-                    objMap.put("username", message.getFrom());
+                    objMap.put("userName", message.getFrom());
                     objMap.put("msg", message.getBody());
                     System.out.println(message.getFrom() + "：" + message.getBody());
                     messageList.add(objMap);
@@ -278,18 +278,18 @@ public class TestController {
     /**
      * 注册新用户
      *
-     * @param username 用户名
+     * @param userName 用户名
      * @param psd      密码
      * @return
      */
     @RequestMapping(value = "/registerAccount")
     @ResponseBody
-    public BaseResponse registerAccount(String username, String psd) {
+    public BaseResponse registerAccount(String userName, String psd, HttpServletRequest request) {
         try {
-            con = getConnection();
+            XMPPTCPConnection con = getConnection(userName, request);
             con.connect();
             AccountManager manager = AccountManager.getInstance(con);
-            manager.createAccount(username, psd);
+            manager.createAccount(userName, psd);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseBuilder.custom().failed("创建失败").build();
@@ -301,18 +301,19 @@ public class TestController {
      * 添加好友
      *
      * @param jid      jid
-     * @param username 用户名
+     * @param userName 用户名
      * @return
      */
     @RequestMapping(value = "/addFriend")
     @ResponseBody
-    public BaseResponse addFriend(String jid, String username) {
+    public BaseResponse addFriend(String jid, String userName) {
+        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
         Roster roster = Roster.getInstanceFor(con);
         try {
             //好友验证
             roster.setSubscriptionMode(Roster.SubscriptionMode.manual);
-            roster.createEntry(jid, username, null);
-            addFriendListener();
+            roster.createEntry(jid, userName, null);
+            addFriendListener(con);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseBuilder.custom().failed("请求发送失败").build();
@@ -323,7 +324,7 @@ public class TestController {
     /**
      * 添加好友监听
      */
-    public void addFriendListener() {
+    public void addFriendListener(XMPPTCPConnection con) {
         //条件过滤
         StanzaFilter filter = new AndFilter();
         StanzaListener listener = new StanzaListener() {
@@ -350,7 +351,7 @@ public class TestController {
      *
      * @return
      */
-    public Roster getContact() {
+    public Roster getContact(XMPPTCPConnection con) {
         Roster roster = Roster.getInstanceFor(con);
         //获取好友组
         Collection<RosterGroup> rosterGroups = roster.getGroups();
@@ -374,9 +375,11 @@ public class TestController {
      * @return
      */
     @RequestMapping(value = "/logout")
-    public String logout(Map paramMap) {
+    public String logout(Map paramMap, String userName) {
         try {
+            XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
             con.instantShutdown();
+            session.setAttribute(userName, null);
             return "/goLogin";
         } catch (Exception e) {
             paramMap.put("key", "退出失败！");
@@ -387,7 +390,7 @@ public class TestController {
     /**
      * 获取离线消息
      */
-    public void getOfflineMsg(Map paramsMap) {
+    public void getOfflineMsg(Map paramsMap, XMPPTCPConnection con) {
         OfflineMessageManager messageManager = new OfflineMessageManager(con);
         try {
             List<Message> messageList = messageManager.getMessages();
@@ -408,21 +411,27 @@ public class TestController {
      *
      * @return
      */
-    public XMPPTCPConnection getConnection() {
-        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
-        config.setServiceName(openfireServer);
-        config.setHost(openfireServer);
-        config.setPort(5222);
-        //关闭安全认证
-        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
-        //将用户状态设为离线
-        config.setSendPresence(false);
-        //是否开启压缩
-        config.setCompressionEnabled(false);
-        XMPPTCPConnection con = new XMPPTCPConnection(config.build());
-        SASLAuthentication.blacklistSASLMechanism("SCRAM-SHA-1");
-        SASLAuthentication.blacklistSASLMechanism("DIGEST-MD5");
-        SASLAuthentication.blacklistSASLMechanism("CRAM-MD5");
+    public XMPPTCPConnection getConnection(String userName, HttpServletRequest request) {
+        session = request.getSession();
+        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
+        if (null == con) {
+            XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+            config.setServiceName(openfireServer);
+            config.setHost(openfireServer);
+            config.setPort(5222);
+            //关闭安全认证
+            config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+            //将用户状态设为离线
+            config.setSendPresence(false);
+            //是否开启压缩
+            config.setCompressionEnabled(false);
+            con = new XMPPTCPConnection(config.build());
+            SASLAuthentication.blacklistSASLMechanism("SCRAM-SHA-1");
+            SASLAuthentication.blacklistSASLMechanism("DIGEST-MD5");
+            SASLAuthentication.blacklistSASLMechanism("CRAM-MD5");
+            session.setAttribute(userName, con);
+            return con;
+        }
         return con;
     }
 }
