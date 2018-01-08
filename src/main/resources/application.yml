@@ -3,8 +3,8 @@ openfire:
   server: 192.168.2.64
 
 spring:
-  redis:
-      database: 26 # Redis
-      host: 192.168.0.39 # Redis
-      port: 15818  # Redis
-      password: Redis1231123@#@!!=-23Sdasd1231gjoiuq123#@sda2131-sadas213dsada@#^%&13asdad3412452332
+  datasource:
+    url: jdbc:mysql://192.168.2.64:3306/openfire
+    username: root
+    password: root
+    driver-class-name: com.mysql.jdbc.Driver

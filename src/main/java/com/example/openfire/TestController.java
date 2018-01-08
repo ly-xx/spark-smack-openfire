@@ -2,6 +2,8 @@ package com.example.openfire;
 
 import com.daqsoft.commons.responseEntity.BaseResponse;
 import com.daqsoft.commons.responseEntity.ResponseBuilder;
+import com.example.entity.OfChatLogs;
+import com.example.service.OfChatLogsService;
 import org.apache.commons.lang3.StringUtils;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.SASLAuthentication;
@@ -26,6 +28,7 @@ import org.jivesoftware.smackx.offline.OfflineMessageManager;
 import org.jivesoftware.smackx.search.ReportedData;
 import org.jivesoftware.smackx.search.UserSearchManager;
 import org.jivesoftware.smackx.xdata.Form;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,6 +53,9 @@ public class TestController {
 
     HttpSession session;
 
+    @Autowired
+    OfChatLogsService chatLogsService;
+
     /**
      * 跳转登录页面
      *
@@ -63,6 +69,10 @@ public class TestController {
     /**
      * 跳转消息记录
      *
+     * @param friendName 好友姓名
+     * @param paramsMap
+     * @param jid
+     * @param userName   登录姓名
      * @return
      */
     @RequestMapping(value = "/getMsg")
@@ -117,6 +127,9 @@ public class TestController {
     /**
      * 跳转好友添加页面
      *
+     * @param userName 登录姓名
+     * @param jid      好友jid
+     * @param paramMap
      * @return
      */
     @RequestMapping(value = "/goAddFriend")
@@ -173,7 +186,7 @@ public class TestController {
     public BaseResponse login(String userName, String psd, HttpServletRequest request) {
         try {
             XMPPTCPConnection con = getConnection(userName, request);
-            if (!con.isConnected()){
+            if (!con.isConnected()) {
                 con.connect();
             }
             if (con.isConnected()) {
@@ -195,7 +208,9 @@ public class TestController {
     /**
      * 消息发送
      *
-     * @param userName jid
+     * @param userName 登录姓名
+     * @param msg      消息
+     * @param jid      接收者jid
      * @return
      */
     @RequestMapping(value = "/sendMsg")
@@ -209,6 +224,13 @@ public class TestController {
             chat.sendMessage(msg);
             paramsMap.put("userName", con.getUser());
             paramsMap.put("msg", msg);
+            OfChatLogs chatLogs = new OfChatLogs();
+            chatLogs.setContent(msg);
+            chatLogs.setCreateDate(new Date());
+            chatLogs.setReceiver(jid);
+            chatLogs.setSender(userName);
+            chatLogs.setSessionJid(jid);
+            chatLogsService.save(chatLogs);
             System.out.println(con.getUser() + "：" + msg);
             List messageList = (List) session.getAttribute("messageList");
             if (null == messageList) {
@@ -218,6 +240,7 @@ public class TestController {
             session.setAttribute("messageList", messageList);
 
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseBuilder.custom().failed("发送失败").build();
         }
         return ResponseBuilder.custom().success().data(paramsMap).build();
