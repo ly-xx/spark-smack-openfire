@@ -14,11 +14,6 @@
 </form>
 <div>
     <h3>消息记录</h3>
-<#if messageList??>
-    <#list messageList as msg>
-        <a>${msg!}</a><br>
-    </#list>
-</#if>
     <div id="historyBox"></div>
 </div>
 <script src="http://filealiyun.geeker.com.cn/ued/js/jquery-1.8.3.min.js"></script>
@@ -33,12 +28,32 @@
             dataType: "json",
             success: function (result) {
                 if (result.code == 0) {
-                    var data = result.data;
-                    $("#historyBox").append(data.username + "：" + data.msg + "<br>");
+                    setInterval(getMsgList, 1000);
+//                    var data = result.data;
+//                    $("#historyBox").append(data.username + "：" + data.msg + "<br>");
                 }
             }
         });
         return false;
+    }
+
+
+    function getMsgList() {
+        $.ajax({
+            url: "/getMsgList",
+            type: "get",
+            dataType: "json",
+            success: function (result) {
+                if (result.code == 0) {
+                    var datas = result.datas;
+                    var html = "";
+                    for (var i in datas) {
+                        html += datas[i].username + "：" + datas[i].msg + "<br>";
+                    }
+                    $("#historyBox").html(html);
+                }
+            }
+        });
     }
 </script>
 </body>

@@ -29,6 +29,7 @@ import org.jivesoftware.smackx.search.UserSearchManager;
 import org.jivesoftware.smackx.xdata.Form;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -210,10 +211,10 @@ public class TestController {
             paramsMap.put("msg", msg);
             System.out.println(con.getUser() + "：" + msg);
             List messageList = (List) session.getAttribute("messageList");
-            if (null == messageList){
+            if (null == messageList) {
                 messageList = new ArrayList<>();
             }
-            messageList.add(con.getUser() + "：" + msg);
+            messageList.add(paramsMap);
             session.setAttribute("messageList", messageList);
 
         } catch (Exception e) {
@@ -224,7 +225,6 @@ public class TestController {
 
     /**
      * 添加监听
-     *
      */
     public void getMsg(HttpServletRequest request) {
         session = request.getSession();
@@ -236,11 +236,14 @@ public class TestController {
                 //当消息返回为空的时候，表示用户正在聊天窗口编辑信息并未发出消息
                 if (StringUtils.isNotBlank(message.getBody())) {
                     List messageList = (List) session.getAttribute("messageList");
-                    if (null == messageList){
+                    if (null == messageList) {
                         messageList = new ArrayList<>();
                     }
+                    Map objMap = new HashMap();
+                    objMap.put("username", message.getFrom());
+                    objMap.put("msg", message.getBody());
                     System.out.println(message.getFrom() + "：" + message.getBody());
-                    messageList.add(message.getFrom() + "：" + message.getBody());
+                    messageList.add(objMap);
                     session.setAttribute("messageList", messageList);
                 }
             }
@@ -253,6 +256,22 @@ public class TestController {
             }
         };
         manager.addChatListener(chatManagerListener);
+    }
+
+    /**
+     * 获取消息
+     *
+     * @return
+     */
+    @RequestMapping(value = "/getMsgList")
+    @ResponseBody
+    public BaseResponse getMsgList(HttpServletRequest request) {
+        session = request.getSession();
+        List messageList = (List) session.getAttribute("messageList");
+        if (null == messageList) {
+            messageList = new ArrayList<>();
+        }
+        return ResponseBuilder.custom().success().data(messageList).build();
     }
 
 
