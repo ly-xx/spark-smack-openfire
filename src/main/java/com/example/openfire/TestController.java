@@ -363,7 +363,7 @@ public class TestController {
                         System.out.println("请求添加好友");
                     } else if (p.getType().toString().equals("subscribed")) {
                         System.out.println("通过好友请求");
-                    } else if (p.getType().toString().equals("unsubscribe")) {
+                    } else if (p.getType().toString().equals("unsubscribed")) {
                         System.out.println("拒绝好友请求");
                     }
                 }
