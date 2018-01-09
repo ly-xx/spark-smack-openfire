@@ -2,7 +2,7 @@ package com.example.openfire;
 
 import com.daqsoft.commons.responseEntity.BaseResponse;
 import com.daqsoft.commons.responseEntity.ResponseBuilder;
-import com.example.entity.OfChatLogs;
+import com.example.entity.OfChatHistory;
 import com.example.service.OfChatLogsService;
 import org.apache.commons.lang3.StringUtils;
 import org.jivesoftware.smack.ConnectionConfiguration;
@@ -225,7 +225,7 @@ public class TestController {
             chat.sendMessage(msg);
             paramsMap.put("userName", con.getUser());
             paramsMap.put("msg", msg);
-            OfChatLogs chatLogs = new OfChatLogs();
+            OfChatHistory chatLogs = new OfChatHistory();
             chatLogs.setContent(msg);
             chatLogs.setCreateDate(new Date());
             chatLogs.setReceiver(jid);

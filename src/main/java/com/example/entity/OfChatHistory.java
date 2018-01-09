@@ -11,8 +11,8 @@ import java.util.Date;
  * @date 2018-1-8
  */
 @Entity
-@Table(name = "ofchatlogs")
-public class OfChatLogs {
+@Table(name = "OFCHATHISTORY")
+public class OfChatHistory {
 
     @Id
     @Column(name = "MESSAGEID")

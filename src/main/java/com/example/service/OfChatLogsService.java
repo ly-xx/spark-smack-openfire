@@ -1,6 +1,6 @@
 package com.example.service;
 
-import com.example.entity.OfChatLogs;
+import com.example.entity.OfChatHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Component;
@@ -12,6 +12,6 @@ import org.springframework.stereotype.Component;
  */
 
 @Component
-public interface OfChatLogsService  extends JpaRepository<OfChatLogs, Long>, JpaSpecificationExecutor<OfChatLogs> {
+public interface OfChatLogsService  extends JpaRepository<OfChatHistory, Long>, JpaSpecificationExecutor<OfChatHistory> {
 
 }
