@@ -22,7 +22,7 @@
                 if (result.code == 0) {
                     var html = "";
                     for (var i in result.datas) {
-                        html += "<a href='/goAddFriend?userName="+result.datas[i].userName+"&jid="+result.datas[i].jid+"'>"
+                        html += "<a href='/goAddFriend?friendName="+result.datas[i].userName+"&userName=${userName!}&jid="+result.datas[i].jid+"'>"
                                 + result.datas[i].userName + "</a><br>";
                     }
                     $("#userBox").html(html);

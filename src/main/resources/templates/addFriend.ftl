@@ -14,11 +14,12 @@
 <script>
     function addFriend() {
         var jid = $("#jid").val();
+        var friendName = $("#friendName").val();
         var userName = $("#userName").val();
         $.ajax({
             url: "/addFriend",
             type: "post",
-            data: {"jid": jid, "userName": userName},
+            data: {"jid": jid, "userName": userName, "friendName":'${friendName!}'},
             dataType: "json",
             success: function (result) {
                 if (result.code == 0) {

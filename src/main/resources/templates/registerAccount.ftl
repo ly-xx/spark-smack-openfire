@@ -23,6 +23,7 @@
             success: function (result) {
                 if (result.code == 0) {
                     alert("注册成功！");
+                    window.location.href = "/goLogin";
                 }
             }
         });

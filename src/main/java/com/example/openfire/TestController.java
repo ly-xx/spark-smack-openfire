@@ -27,6 +27,7 @@ import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.offline.OfflineMessageManager;
 import org.jivesoftware.smackx.search.ReportedData;
 import org.jivesoftware.smackx.search.UserSearchManager;
+import org.jivesoftware.smackx.vcardtemp.VCardManager;
 import org.jivesoftware.smackx.xdata.Form;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -133,9 +134,10 @@ public class TestController {
      * @return
      */
     @RequestMapping(value = "/goAddFriend")
-    public String goAddFriend(String userName, String jid, Map paramMap) {
+    public String goAddFriend(String userName, String jid, Map paramMap, String friendName) {
         paramMap.put("jid", jid);
         paramMap.put("userName", userName);
+        paramMap.put("friendName", friendName);
         return "/addFriend";
     }
 
@@ -330,14 +332,14 @@ public class TestController {
      */
     @RequestMapping(value = "/addFriend")
     @ResponseBody
-    public BaseResponse addFriend(String jid, String userName) {
+    public BaseResponse addFriend(String jid, String userName, String friendName) {
         XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
         Roster roster = Roster.getInstanceFor(con);
         try {
             //好友验证
             roster.setSubscriptionMode(Roster.SubscriptionMode.manual);
-            roster.createEntry(jid, userName, null);
             addFriendListener(con);
+            roster.createEntry(jid, friendName, new String[]{"friends"});
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseBuilder.custom().failed("请求发送失败").build();
@@ -354,6 +356,7 @@ public class TestController {
         StanzaListener listener = new StanzaListener() {
             @Override
             public void processPacket(Stanza packet) throws SmackException.NotConnectedException {
+                System.out.println("获取好友添加请求");
                 if (packet instanceof Presence) {
                     Presence p = (Presence) packet;
                     if (p.getType().toString().equals("subscribe")) {
