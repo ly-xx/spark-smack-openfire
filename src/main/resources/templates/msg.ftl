@@ -24,7 +24,7 @@
         $.ajax({
             url: "/sendMsg",
             type: "post",
-            data: {"userName": '${userName!}', "msg": msg, "jid":'${jid!''}'},
+            data: {"userName": '${userName!}', "msg": msg, "jid":'${jid!''}', friendName:'${friendName!}'},
             dataType: "json",
             success: function (result) {
                 if (result.code == 0) {

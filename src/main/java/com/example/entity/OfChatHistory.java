@@ -15,27 +15,39 @@ import java.util.Date;
 public class OfChatHistory {
 
     @Id
-    @Column(name = "MESSAGEID")
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long messageId;
+    @Column(name = "ID")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
 
     /**
-     * 发送者jid
-     */
-    @Column(name = "SESSIONJID")
-    private String sessionJid;
-
-    /**
-     * 发送者姓名
+     * 发送方
      */
     @Column(name = "SENDER")
     private String sender;
 
     /**
-     * 接收者姓名
+     * 接收方
      */
     @Column(name = "RECEIVER")
     private String receiver;
+
+    /**
+     * 消息体
+     */
+    @Column(name = "CONTENT")
+    private String content;
+
+    /**
+     * 语言
+     */
+    @Column(name = "LANG")
+    private String lang = "cn";
+
+    /**
+     * 站点代码
+     */
+    @Column(name = "HDCODE")
+    private String hdcode = "1001004_1";
 
     /**
      * 创建时间
@@ -43,26 +55,12 @@ public class OfChatHistory {
     @Column(name = "CREATEDATE")
     private Date createDate;
 
-    /**
-     * 消息内容
-     */
-    @Column(name = "CONTENT")
-    private String content;
-
-    public Long getMessageId() {
-        return messageId;
+    public Long getId() {
+        return id;
     }
 
-    public void setMessageId(Long messageId) {
-        this.messageId = messageId;
-    }
-
-    public String getSessionJid() {
-        return sessionJid;
-    }
-
-    public void setSessionJid(String sessionJid) {
-        this.sessionJid = sessionJid;
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getSender() {
@@ -81,6 +79,14 @@ public class OfChatHistory {
         this.receiver = receiver;
     }
 
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
     public Date getCreateDate() {
         return createDate;
     }
@@ -89,11 +95,19 @@ public class OfChatHistory {
         this.createDate = createDate;
     }
 
-    public String getContent() {
-        return content;
+    public String getLang() {
+        return lang;
     }
 
-    public void setContent(String content) {
-        this.content = content;
+    public void setLang(String lang) {
+        this.lang = lang;
+    }
+
+    public String getHdcode() {
+        return hdcode;
+    }
+
+    public void setHdcode(String hdcode) {
+        this.hdcode = hdcode;
     }
 }

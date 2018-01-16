@@ -158,8 +158,8 @@ public class TestController {
             Form searchForm = manager.getSearchForm("search." + con.getServiceName());
             Form answerForm = searchForm.createAnswerForm();
 //            if (StringUtils.isNotBlank(searchName)) {
-                answerForm.setAnswer("Username", true);
-                answerForm.setAnswer("search", searchName);
+            answerForm.setAnswer("Username", true);
+            answerForm.setAnswer("search", searchName);
 //            }
             ReportedData reportedData = manager.getSearchResults(answerForm, "search." + con.getServiceName());
             List<ReportedData.Row> rowList = reportedData.getRows();
@@ -218,7 +218,7 @@ public class TestController {
      */
     @RequestMapping(value = "/sendMsg")
     @ResponseBody
-    public BaseResponse sendMsg(String userName, String msg, String jid) {
+    public BaseResponse sendMsg(String userName, String msg, String friendName, String jid) {
         Map paramsMap = new HashMap();
         try {
             XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
@@ -230,9 +230,8 @@ public class TestController {
             OfChatHistory chatLogs = new OfChatHistory();
             chatLogs.setContent(msg);
             chatLogs.setCreateDate(new Date());
-            chatLogs.setReceiver(jid);
+            chatLogs.setReceiver(friendName);
             chatLogs.setSender(userName);
-            chatLogs.setSessionJid(jid);
             chatLogsService.save(chatLogs);
             System.out.println(con.getUser() + "：" + msg);
             List messageList = (List) session.getAttribute("messageList");
