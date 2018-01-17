@@ -27,7 +27,6 @@ import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.offline.OfflineMessageManager;
 import org.jivesoftware.smackx.search.ReportedData;
 import org.jivesoftware.smackx.search.UserSearchManager;
-import org.jivesoftware.smackx.vcardtemp.VCardManager;
 import org.jivesoftware.smackx.xdata.Form;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,20 +41,23 @@ import java.util.*;
 /**
  * @author lxx
  * @version V1.0.0
- * @date 2017-12-28
+ * @date 2018-1-16
  */
 
-//@Controller
-public class TestController {
+@Controller
+public class TestConController {
 
     //openfire服务器地址
     @Value("${openfire.server}")
     private String openfireServer;
 
-    HttpSession session;
+    @Value("${openfire.port}")
+    private String openfirePort;
 
     @Autowired
     OfChatLogsService chatLogsService;
+
+    XMPPTCPConnection con;
 
     /**
      * 跳转登录页面
@@ -92,7 +94,6 @@ public class TestController {
      */
     @RequestMapping(value = "/goIndex")
     public String goIndex(Map paramMap, String userName) {
-        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
         //登录成功后获取用户好友列表
         Roster roster = getContact(con);
         //获取离线消息
@@ -151,7 +152,6 @@ public class TestController {
     public BaseResponse searchUser(String searchName, String userName) {
         List<Map> mapList = new ArrayList<>();
         //查询服务器上的用户信息
-        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
         UserSearchManager manager = new UserSearchManager(con);
         try {
             //搜索表单
@@ -188,15 +188,15 @@ public class TestController {
     @ResponseBody
     public BaseResponse login(String userName, String psd, HttpServletRequest request) {
         try {
-            XMPPTCPConnection con = getConnection(userName, request);
+            XMPPTCPConnection con = getConnection();
             if (!con.isConnected()) {
                 con.connect();
             }
             if (con.isConnected()) {
                 //登录
-                con.login(userName, psd, Math.random()+"");
+                con.login(userName, psd);
                 //监听消息
-                getMsg(request, con);
+                getMsg();
                 // accept_all: 接收所有请求；reject_all: 拒绝所有请求；manual: 手工处理所有请求
                 Roster.getInstanceFor(con).setSubscriptionMode(Roster.SubscriptionMode.manual);
                 Thread.sleep(1000);
@@ -206,6 +206,31 @@ public class TestController {
             return ResponseBuilder.custom().failed("登录失败").build();
         }
         return ResponseBuilder.custom().success().build();
+    }
+
+    /**
+     * 添加监听
+     */
+    public void getMsg() {
+        ChatManager manager = ChatManager.getInstanceFor(con);
+        //设置信息的监听
+        final ChatMessageListener messageListener = new ChatMessageListener() {
+            @Override
+            public void processMessage(Chat chat, Message message) {
+                //当消息返回为空的时候，表示用户正在聊天窗口编辑信息并未发出消息
+                if (StringUtils.isNotBlank(message.getBody())) {
+                    System.out.println(message.getFrom() + "：" + message.getBody());
+                }
+            }
+        };
+        //创建会话
+        ChatManagerListener chatManagerListener = new ChatManagerListener() {
+            @Override
+            public void chatCreated(Chat chat, boolean arg1) {
+                chat.addMessageListener(messageListener);
+            }
+        };
+        manager.addChatListener(chatManagerListener);
     }
 
     /**
@@ -221,7 +246,6 @@ public class TestController {
     public BaseResponse sendMsg(String userName, String msg, String friendName, String jid) {
         Map paramsMap = new HashMap();
         try {
-            XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
             ChatManager manager = ChatManager.getInstanceFor(con);
             Chat chat = manager.createChat(jid, null);
             chat.sendMessage(msg);
@@ -234,69 +258,12 @@ public class TestController {
             chatLogs.setSender(userName);
             chatLogsService.save(chatLogs);
             System.out.println(con.getUser() + "：" + msg);
-            List messageList = (List) session.getAttribute("messageList");
-            if (null == messageList) {
-                messageList = new ArrayList<>();
-            }
-            messageList.add(paramsMap);
-            session.setAttribute("messageList", messageList);
 
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseBuilder.custom().failed("发送失败").build();
         }
         return ResponseBuilder.custom().success().data(paramsMap).build();
-    }
-
-    /**
-     * 添加监听
-     */
-    public void getMsg(HttpServletRequest request, XMPPTCPConnection con) {
-        session = request.getSession();
-        ChatManager manager = ChatManager.getInstanceFor(con);
-        //设置信息的监听
-        final ChatMessageListener messageListener = new ChatMessageListener() {
-            @Override
-            public void processMessage(Chat chat, Message message) {
-                //当消息返回为空的时候，表示用户正在聊天窗口编辑信息并未发出消息
-                if (StringUtils.isNotBlank(message.getBody())) {
-                    List messageList = (List) session.getAttribute("messageList");
-                    if (null == messageList) {
-                        messageList = new ArrayList<>();
-                    }
-                    Map objMap = new HashMap();
-                    objMap.put("userName", message.getFrom());
-                    objMap.put("msg", message.getBody());
-                    System.out.println(message.getFrom() + "：" + message.getBody());
-                    messageList.add(objMap);
-                    session.setAttribute("messageList", messageList);
-                }
-            }
-        };
-        //创建会话
-        ChatManagerListener chatManagerListener = new ChatManagerListener() {
-            @Override
-            public void chatCreated(Chat chat, boolean arg1) {
-                chat.addMessageListener(messageListener);
-            }
-        };
-        manager.addChatListener(chatManagerListener);
-    }
-
-    /**
-     * 获取消息
-     *
-     * @return
-     */
-    @RequestMapping(value = "/getMsgList")
-    @ResponseBody
-    public BaseResponse getMsgList(HttpServletRequest request) {
-        session = request.getSession();
-        List messageList = (List) session.getAttribute("messageList");
-        if (null == messageList) {
-            messageList = new ArrayList<>();
-        }
-        return ResponseBuilder.custom().success().data(messageList).build();
     }
 
 
@@ -311,7 +278,7 @@ public class TestController {
     @ResponseBody
     public BaseResponse registerAccount(String userName, String psd, HttpServletRequest request) {
         try {
-            XMPPTCPConnection con = getConnection(userName, request);
+            XMPPTCPConnection con = getConnection();
             con.connect();
             AccountManager manager = AccountManager.getInstance(con);
             manager.createAccount(userName, psd);
@@ -332,43 +299,16 @@ public class TestController {
     @RequestMapping(value = "/addFriend")
     @ResponseBody
     public BaseResponse addFriend(String jid, String userName, String friendName) {
-        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
         Roster roster = Roster.getInstanceFor(con);
         try {
             //好友验证
             roster.setSubscriptionMode(Roster.SubscriptionMode.manual);
-            addFriendListener(con);
             roster.createEntry(jid, friendName, new String[]{"friends"});
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseBuilder.custom().failed("请求发送失败").build();
         }
         return ResponseBuilder.custom().success().build();
-    }
-
-    /**
-     * 添加好友监听
-     */
-    public void addFriendListener(XMPPTCPConnection con) {
-        //条件过滤
-        StanzaFilter filter = new AndFilter();
-        StanzaListener listener = new StanzaListener() {
-            @Override
-            public void processPacket(Stanza packet) throws SmackException.NotConnectedException {
-                System.out.println("获取好友添加请求");
-                if (packet instanceof Presence) {
-                    Presence p = (Presence) packet;
-                    if (p.getType().toString().equals("subscribe")) {
-                        System.out.println("请求添加好友");
-                    } else if (p.getType().toString().equals("subscribed")) {
-                        System.out.println("通过好友请求");
-                    } else if (p.getType().toString().equals("unsubscribed")) {
-                        System.out.println("拒绝好友请求");
-                    }
-                }
-            }
-        };
-        con.addSyncStanzaListener(listener, filter);
     }
 
 
@@ -401,11 +341,9 @@ public class TestController {
      * @return
      */
     @RequestMapping(value = "/logout")
-    public String logout(Map paramMap, String userName) {
+    public String logout(Map paramMap) {
         try {
-            XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
             con.instantShutdown();
-            session.setAttribute(userName, null);
             return "/goLogin";
         } catch (Exception e) {
             paramMap.put("key", "退出失败！");
@@ -431,33 +369,60 @@ public class TestController {
         }
     }
 
+    /**
+     * 跳转修改密码
+     * @return
+     */
+    @RequestMapping(value = "/goUpdate")
+    public String goUpdate(){
+        return "/update";
+    }
+
+    /**
+     * 修改密码
+     *
+     * @param userName    用户名
+     * @param password    密码
+     * @param newPassword 新密码
+     * @throws Exception
+     */
+    @RequestMapping(value = "/updatePassword")
+    @ResponseBody
+    public BaseResponse updatePassword(String userName, String password, String newPassword) {
+        try {
+            //修改密码(要先登录才能修改密码)
+//            connection.login(userName, password);
+            AccountManager manager = AccountManager.getInstance(con); //获取用户实例
+            manager.sensitiveOperationOverInsecureConnection(true);
+            manager.changePassword(newPassword);
+            con.instantShutdown();
+            return ResponseBuilder.custom().success().build();
+        }catch (Exception e){
+            return ResponseBuilder.custom().failed("修改失败").build();
+        }
+    }
+
 
     /**
      * 创建XMPP连接
      *
      * @return
      */
-    public XMPPTCPConnection getConnection(String userName, HttpServletRequest request) {
-        session = request.getSession();
-        XMPPTCPConnection con = (XMPPTCPConnection) session.getAttribute(userName);
-        if (null == con) {
-            XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
-            config.setServiceName(openfireServer);
-            config.setHost(openfireServer);
-            config.setPort(5222);
-            //关闭安全认证
-            config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
-            //将用户状态设为离线
-            config.setSendPresence(false);
-            //是否开启压缩
-            config.setCompressionEnabled(false);
-            con = new XMPPTCPConnection(config.build());
-            SASLAuthentication.blacklistSASLMechanism("SCRAM-SHA-1");
-            SASLAuthentication.blacklistSASLMechanism("DIGEST-MD5");
-            SASLAuthentication.blacklistSASLMechanism("CRAM-MD5");
-            session.setAttribute(userName, con);
-            return con;
-        }
+    public XMPPTCPConnection getConnection() {
+        XMPPTCPConnectionConfiguration.Builder config = XMPPTCPConnectionConfiguration.builder();
+        config.setServiceName(openfireServer);
+        config.setHost(openfireServer);
+        config.setPort(Integer.parseInt(openfirePort));
+        //关闭安全认证
+        config.setSecurityMode(ConnectionConfiguration.SecurityMode.disabled);
+        //将用户状态设为离线
+        config.setSendPresence(true);
+        //是否开启压缩
+        config.setCompressionEnabled(false);
+        con = new XMPPTCPConnection(config.build());
+        SASLAuthentication.blacklistSASLMechanism("SCRAM-SHA-1");
+        SASLAuthentication.blacklistSASLMechanism("DIGEST-MD5");
+        SASLAuthentication.blacklistSASLMechanism("CRAM-MD5");
         return con;
     }
 }

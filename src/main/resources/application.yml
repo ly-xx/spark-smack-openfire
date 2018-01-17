@@ -1,6 +1,7 @@
 #openfire 服务器名称
 openfire:
-  server: 192.168.2.64
+  server: 182.151.214.57
+  port: 52222
 
 spring:
   datasource:
